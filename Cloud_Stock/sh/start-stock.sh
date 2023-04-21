@@ -1,38 +1,13 @@
 #!/bin/bash
-APP_NAME=Cloud_Stock-1.0-SNAPSHOT.jar
-APP_LOG=stock.log
-APP_HOME=/home/kjg1/jenkins_output/Cloud_Stock/target
-pid=`ps -ef | grep ${APP_NAME} | grep -v grep | awk '{print $2}'`
+IMAGE_NAME=harbor.genn.com/cloud_01/cloud-stock
+containerId=`docker ps -a | grep "$IMAGE_NAME" | awk '{print $1}'`
+imageId=`docker images | grep "$IMAGE_NAME" | awk '{print $3}'`
+echo "containerId=$containerId,imageId=$imageId"
 
-# 判断Cloud-Order是否运行中，存在：返回1，不存在：返回0
-exist() {
-  if [ -z "${pid}" ]
-  then
-        return 0
-  else
-        return 1
-  fi
-}
-
-
-stop() {
-        exist
-        if [ $? -eq "1" ]; then
-                kill ${pid}
-                rm -f $APP_HOME/$APP_LOG
-        else
-                echo "not running"
-        fi
-}
-
-start(){
-        nohup /usr/local/jdk/jdk1.8.0_311/bin/java -jar -Dfile.encoding=utf-8 $APP_HOME/$APP_NAME  > $APP_HOME/$APP_LOG 2>&1 &
-}
-
-
-restart(){
-        stop
-        start
-}
-
-restart
+docker stop $containerId
+docker rm $containerId
+docker rmi $imageId
+cp ../target/*.jar ../dockerfiles
+docker build -t $IMAGE_NAME ../dockerfiles/
+docker run -d --network=host -p 9001:9001 -e "STOCK_META=10086" --add-host=kjg-pc:192.168.120.161 $IMAGE_NAME --name=test-stock-env
+docker push $IMAGE_NAME
